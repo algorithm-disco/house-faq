@@ -12,6 +12,8 @@ from engines.utils.metrics import correct_predictions, cal_metrics
 from sklearn.model_selection import GroupKFold
 from transformers.optimization import AdamW
 from tqdm import tqdm
+from engines.test import test
+import numpy as np
 import torch
 import time
 
@@ -57,9 +59,9 @@ def train(device, logger):
     epoch = 10
     learning_rate = 0.0004
     patience = 3
-    best_f1 = 0.0
     print_per_batch = 40
     folds = 5
+    test_predicts_folds = [0] * folds
 
     # 加载训练语料
     train_query_file = 'datasets/train/train.query.tsv'
@@ -71,6 +73,19 @@ def train(device, logger):
     train_data = train_left.merge(train_right, how='left')
     train_data['reply'] = train_data['reply'].fillna('好的')
 
+    # 加载测试语料
+    test_query_file = 'datasets/test/test.query.tsv'
+    test_reply_file = 'datasets/test/test.reply.tsv'
+    test_left = pd.read_csv(test_query_file, sep='\t', header=None, encoding='gbk')
+    test_left.columns = ['id', 'query']
+    test_right = pd.read_csv(test_reply_file, sep='\t', header=None, encoding='gbk')
+    test_right.columns = ['id', 'id_sub', 'reply']
+    test_data = test_left.merge(test_right, how='left')
+
+    test_data_manger = DataPrecessForSentence(test_data, logger)
+    logger.info('test_data_length:{}\n'.format(len(test_data_manger)))
+    test_loader = DataLoader(test_data_manger, shuffle=False, batch_size=batch_size)
+
     # 交叉熵损失函数
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -78,6 +93,7 @@ def train(device, logger):
     gkf = GroupKFold(n_splits=5).split(X=train_data.reply, groups=train_data.id)
 
     for fold, (train_idx, valid_idx) in enumerate(gkf):
+        best_f1 = 0.0
         logger.info('fold:{}/{}'.format(fold + 1, folds))
         train_data_manger = DataPrecessForSentence(train_data.iloc[train_idx], logger)
         logger.info('train_data_length:{}\n'.format(len(train_data_manger)))
@@ -122,18 +138,26 @@ def train(device, logger):
             logger.info('time consumption of training:%.2f(min)' % train_time)
             logger.info('start evaluate model...')
             val_measures = evaluate(logger, device, model, criterion, val_loader)
+
             patience_counter = 0
             if val_measures['f1'] > best_f1 and val_measures['f1'] > 0.70:
                 patience_counter = 0
                 best_f1 = val_measures['f1']
-                # 保存当前这个模型参数
-                torch.save(model.state_dict(), 'checkpoint/best_model.pkl')
-                logger.info('saved best model successful...')
+                logger.info('start test model...')
+                test_label_results = test(logger, device, model, test_loader)
+                test_predicts_folds[fold] = test_label_results
+                logger.info('find the new best model with f1 in fold %5d: %.3f' % (fold+1, best_f1))
             else:
                 patience_counter += 1
             if patience_counter >= patience:
                 logger('Early stopping: patience limit reached, stopping...')
                 break
+
+    sub = np.average(test_predicts_folds, axis=0)
+
+
+
+
 
 
 

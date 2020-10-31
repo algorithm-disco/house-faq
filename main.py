@@ -8,8 +8,6 @@ import random
 import numpy as np
 import os
 from engines.utils.logger import get_logger
-from engines.bert_esim_model import BertEsimModel
-from engines.test import test
 from engines.train import train
 import torch
 
@@ -51,9 +49,3 @@ if __name__ == '__main__':
     mode = 'train'
     if mode == 'train':
         train(device, logger)
-    else:
-        model = BertEsimModel(device).to(device)
-        model.load_state_dict(torch.load('checkpoint/best_model.pkl'))
-        test(logger, device, model)
-
-

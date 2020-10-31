@@ -12,24 +12,11 @@ import time
 import torch
 
 
-def test(logger, device, model):
+def test(logger, device, model, test_loader):
     """
     运行测试集
     """
-    batch_size = 128
-    # 加载测试语料
-    test_query_file = 'datasets/test/test.query.tsv'
-    test_reply_file = 'datasets/test/test.reply.tsv'
-    test_left = pd.read_csv(test_query_file, sep='\t', header=None, encoding='gbk')
-    test_left.columns = ['id', 'query']
-    test_right = pd.read_csv(test_reply_file, sep='\t', header=None, encoding='gbk')
-    test_right.columns = ['id', 'id_sub', 'reply']
-    test_data = test_left.merge(test_right, how='left')
-    test_data['label'] = 666
-    test_data_manger = DataPrecessForSentence(test_data, logger)
-    logger.info('test_data_length:{}\n'.format(len(test_data_manger)))
-    test_loader = DataLoader(test_data_manger, shuffle=False, batch_size=batch_size)
-
+    label_results = []
     start_time = time.time()
     model.eval()
     with torch.no_grad():
@@ -38,5 +25,7 @@ def test(logger, device, model):
                 device), batch_labels.to(device)
             logits, probabilities = model(ids, masks, segments)
             predicts = torch.argmax(probabilities, dim=1)
+            label_results.extend(predicts.cpu())
     test_time = time.time() - start_time
     logger.info('time consumption of testing:%.2f(min)' % test_time)
+    return label_results
