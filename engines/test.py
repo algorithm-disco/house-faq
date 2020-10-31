@@ -5,9 +5,6 @@
 # @File : test.py 
 # @Software: PyCharm
 from tqdm import tqdm
-import pandas as pd
-from engines.data import DataPrecessForSentence
-from torch.utils.data import DataLoader
 import time
 import torch
 
