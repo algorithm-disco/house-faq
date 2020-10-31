@@ -5,7 +5,6 @@
 # @File : metrics.py
 # @Software: PyCharm
 from sklearn import metrics
-import numpy as np
 
 
 def cal_metrics(predicts, targets):

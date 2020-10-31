@@ -18,7 +18,7 @@ import time
 
 def evaluate(logger, device, model, criterion, dev_data_loader):
     """
-    验证集评估函数，分别计算每个类别的f1、precision、recall
+    验证集评估函数，分别计算f1、precision、recall
     """
     model.eval()
     start_time = time.time()
@@ -42,23 +42,28 @@ def evaluate(logger, device, model, criterion, dev_data_loader):
     val_accuracy = correct_preds / len(dev_data_loader.dataset)
     val_measures = cal_metrics(all_predicts, all_labels)
     val_measures['accuracy'] = val_accuracy
+    # 打印验证集上的指标
     res_str = ''
     for k, v in val_measures.items():
         res_str += (k + ': %.3f ' % v)
-    logger.info('training step: %5d, loss: %.5f, %s' % (step, val_loss, res_str))
+    logger.info('loss: %.5f, %s' % (val_loss, res_str))
     logger.info('time consumption of evaluating:%.2f(min)' % val_time)
     return val_measures
 
 
 def train(device, logger):
+    # 定义各个参数
     batch_size = 128
-    epoch = 30
+    epoch = 10
     learning_rate = 0.0004
     patience = 3
+    best_f1 = 0.0
     print_per_batch = 40
+    folds = 5
+
+    # 加载训练语料
     train_query_file = 'datasets/train/train.query.tsv'
     train_reply_file = 'datasets/train/train.reply.tsv'
-    # 加载训练语料
     train_left = pd.read_csv(train_query_file, sep='\t', header=None)
     train_left.columns = ['id', 'query']
     train_right = pd.read_csv(train_reply_file, sep='\t', header=None)
@@ -66,12 +71,14 @@ def train(device, logger):
     train_data = train_left.merge(train_right, how='left')
     train_data['reply'] = train_data['reply'].fillna('好的')
 
+    # 交叉熵损失函数
     criterion = torch.nn.CrossEntropyLoss()
 
     # N折交叉验证
     gkf = GroupKFold(n_splits=5).split(X=train_data.reply, groups=train_data.id)
 
     for fold, (train_idx, valid_idx) in enumerate(gkf):
+        logger.info('fold:{}/{}'.format(fold + 1, folds))
         train_data_manger = DataPrecessForSentence(train_data.iloc[train_idx], logger)
         logger.info('train_data_length:{}\n'.format(len(train_data_manger)))
         train_loader = DataLoader(train_data_manger, shuffle=True, batch_size=batch_size)
@@ -83,6 +90,7 @@ def train(device, logger):
         model = BertEsimModel(device).to(device)
         params = list(model.parameters())
         optimizer = AdamW(params, lr=learning_rate)
+        # 定义梯度策略
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=0)
         for i in range(epoch):
             train_start = time.time()
@@ -100,7 +108,7 @@ def train(device, logger):
                 optimizer.step()
                 loss_sum += loss.item()
                 correct_preds += correct_predictions(probabilities, labels)
-                # 打印下训练过程中的指标
+                # 打印训练过程中的指标
                 if step % print_per_batch == 0 and step != 0:
                     predicts = torch.argmax(probabilities, dim=1)
                     measures = cal_metrics(predicts.cpu(), labels.cpu())
@@ -112,8 +120,21 @@ def train(device, logger):
             train_accuracy = correct_preds / len(train_loader.dataset)
             scheduler.step(train_accuracy)
             logger.info('time consumption of training:%.2f(min)' % train_time)
-            logger.info('start evaluate engines...')
+            logger.info('start evaluate model...')
             val_measures = evaluate(logger, device, model, criterion, val_loader)
+            patience_counter = 0
+            if val_measures['f1'] > best_f1 and val_measures['f1'] > 0.70:
+                patience_counter = 0
+                best_f1 = val_measures['f1']
+                # 保存当前这个模型参数
+                torch.save(model.state_dict(), 'checkpoint/best_model.pkl')
+                logger.info('saved best model successful...')
+            else:
+                patience_counter += 1
+            if patience_counter >= patience:
+                logger('Early stopping: patience limit reached, stopping...')
+                break
+
 
 
 

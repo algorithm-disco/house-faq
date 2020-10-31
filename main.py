@@ -8,7 +8,8 @@ import random
 import numpy as np
 import os
 from engines.utils.logger import get_logger
-from engines.data import DataPrecessForSentence
+from engines.bert_esim_model import BertEsimModel
+from engines.test import test
 from engines.train import train
 import torch
 
@@ -47,6 +48,12 @@ def fold_check(configures):
 if __name__ == '__main__':
     logger = get_logger('logs')
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    train(device, logger)
+    mode = 'train'
+    if mode == 'train':
+        train(device, logger)
+    else:
+        model = BertEsimModel(device).to(device)
+        model.load_state_dict(torch.load('checkpoint/best_model.pkl'))
+        test(logger, device, model)
 
 

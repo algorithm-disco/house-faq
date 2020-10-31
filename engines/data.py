@@ -32,7 +32,8 @@ class DataPrecessForSentence(Dataset):
             query, reply = row.query, row.reply
             inputs = self.tokenizer.encode_plus(query, reply, add_special_tokens=True,
                                                 max_length=self.max_sequence_length,
-                                                truncation_strategy='longest_first')
+                                                truncation_strategy='longest_first',
+                                                truncation=True)
             input_ids = inputs['input_ids']
             input_masks = [1] * len(input_ids)
             input_segments = inputs['token_type_ids']
