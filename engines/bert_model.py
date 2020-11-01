@@ -17,7 +17,6 @@ class BertwwmModel(nn.Module, ABC):
         self.device = device
         self.dropout = 0.5
         self.embedding_dim = 768
-        self.linear_size = 128
         self.num_classes = num_classes
         self.linear = nn.Linear(4 * self.embedding_dim, num_classes)
         self.dropout = nn.Dropout(self.dropout)
