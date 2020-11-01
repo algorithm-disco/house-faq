@@ -147,7 +147,7 @@ def train(device, logger):
             val_measures, val_label_results = evaluate(logger, device, model, criterion, val_loader)
 
             patience_counter = 0
-            if val_measures['f1'] > best_f1 and val_measures['f1'] > 0.70:
+            if val_measures['f1'] >= best_f1 and val_measures['f1'] > 0.70:
                 logger.info('find the new best model with f1 in fold %d: %.3f' % (fold + 1, best_f1))
                 patience_counter = 0
                 best_f1 = val_measures['f1']
@@ -164,7 +164,7 @@ def train(device, logger):
                 break
 
     outputs = compute_output_arrays(train_data, 'label')
-    best_f1, best_threshold = search_f1(outputs, oof)
+    best_f1, best_threshold = search_f1(logger, outputs, oof)
     sub_predicts = np.average(test_predicts_folds, axis=0)
     sub_predicts = sub_predicts > best_threshold
 
