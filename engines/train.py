@@ -152,7 +152,9 @@ def train(device, logger):
                 best_f1 = val_measures['f1']
                 logger.info('start test model...')
                 test_label_results = test(logger, device, model, test_loader)
+                # 本次对test数据集的预测记录在test_predicts_folds中
                 test_predicts_folds[fold] = test_label_results
+                # 本次验证集的预测数据记录在oof中
                 oof[valid_idx] = [[i] for i in val_label_results]
                 logger.info('find the new best model with f1 in fold %.5d: %.3f' % (fold + 1, best_f1))
             else:
