@@ -7,7 +7,8 @@
 import pandas as pd
 from torch.utils.data import DataLoader
 from engines.data import DataPrecessForSentence
-from engines.bert_esim_model import BertEsimModel
+from engines.bert_esim_model import BertwwmEsimModel
+from engines.bert_model import BertwwmModel
 from engines.utils.metrics import correct_predictions, cal_metrics, search_f1
 from sklearn.model_selection import GroupKFold
 from transformers.optimization import AdamW
@@ -110,7 +111,7 @@ def train(device, logger):
         logger.info('dev_data_length:{}\n'.format(len(val_data_manger)))
         val_loader = DataLoader(val_data_manger, shuffle=False, batch_size=batch_size)
 
-        model = BertEsimModel(device).to(device)
+        model = BertwwmModel(device).to(device)
         params = list(model.parameters())
         optimizer = AdamW(params, lr=learning_rate)
         # 定义梯度策略

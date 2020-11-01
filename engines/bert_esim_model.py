@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import torch
 
 
-class BertEsimModel(nn.Module, ABC):
+class BertwwmEsimModel(nn.Module, ABC):
     def __init__(self, device, num_classes=2):
         super().__init__()
         self.device = device
