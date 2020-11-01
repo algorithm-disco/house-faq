@@ -148,6 +148,7 @@ def train(device, logger):
 
             patience_counter = 0
             if val_measures['f1'] > best_f1 and val_measures['f1'] > 0.70:
+                logger.info('find the new best model with f1 in fold %d: %.3f' % (fold + 1, best_f1))
                 patience_counter = 0
                 best_f1 = val_measures['f1']
                 logger.info('start test model...')
@@ -156,7 +157,6 @@ def train(device, logger):
                 test_predicts_folds[fold] = test_label_results
                 # 本次验证集的预测数据记录在oof中
                 oof[valid_idx] = [[i] for i in val_label_results]
-                logger.info('find the new best model with f1 in fold %.5d: %.3f' % (fold + 1, best_f1))
             else:
                 patience_counter += 1
             if patience_counter >= patience:
