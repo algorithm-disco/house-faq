@@ -8,7 +8,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from engines.data import DataPrecessForSentence
 from engines.bert_esim_model import BertEsimModel
-from engines.utils.metrics import correct_predictions, cal_metrics
+from engines.utils.metrics import correct_predictions, cal_metrics, search_f1
 from sklearn.model_selection import GroupKFold
 from transformers.optimization import AdamW
 from tqdm import tqdm
@@ -16,6 +16,10 @@ from engines.test import test
 import numpy as np
 import torch
 import time
+
+
+def compute_output_arrays(df, columns):
+    return np.asarray(df[columns])
 
 
 def evaluate(logger, device, model, criterion, dev_data_loader):
@@ -50,7 +54,7 @@ def evaluate(logger, device, model, criterion, dev_data_loader):
         res_str += (k + ': %.3f ' % v)
     logger.info('loss: %.5f, %s' % (val_loss, res_str))
     logger.info('time consumption of evaluating:%.2f(min)' % val_time)
-    return val_measures
+    return val_measures, all_predicts
 
 
 def train(device, logger):
@@ -73,6 +77,8 @@ def train(device, logger):
     train_data = train_left.merge(train_right, how='left')
     train_data['reply'] = train_data['reply'].fillna('好的')
 
+    oof = np.zeros((len(train_data), 1))
+
     # 加载测试语料
     test_query_file = 'datasets/test/test.query.tsv'
     test_reply_file = 'datasets/test/test.reply.tsv'
@@ -81,6 +87,7 @@ def train(device, logger):
     test_right = pd.read_csv(test_reply_file, sep='\t', header=None, encoding='gbk')
     test_right.columns = ['id', 'id_sub', 'reply']
     test_data = test_left.merge(test_right, how='left')
+    test_data['label'] = 666
 
     test_data_manger = DataPrecessForSentence(test_data, logger)
     logger.info('test_data_length:{}\n'.format(len(test_data_manger)))
@@ -101,7 +108,7 @@ def train(device, logger):
 
         val_data_manger = DataPrecessForSentence(train_data.iloc[valid_idx], logger)
         logger.info('dev_data_length:{}\n'.format(len(val_data_manger)))
-        val_loader = DataLoader(val_data_manger, shuffle=True, batch_size=batch_size)
+        val_loader = DataLoader(val_data_manger, shuffle=False, batch_size=batch_size)
 
         model = BertEsimModel(device).to(device)
         params = list(model.parameters())
@@ -137,7 +144,7 @@ def train(device, logger):
             scheduler.step(train_accuracy)
             logger.info('time consumption of training:%.2f(min)' % train_time)
             logger.info('start evaluate model...')
-            val_measures = evaluate(logger, device, model, criterion, val_loader)
+            val_measures, val_label_results = evaluate(logger, device, model, criterion, val_loader)
 
             patience_counter = 0
             if val_measures['f1'] > best_f1 and val_measures['f1'] > 0.70:
@@ -146,42 +153,19 @@ def train(device, logger):
                 logger.info('start test model...')
                 test_label_results = test(logger, device, model, test_loader)
                 test_predicts_folds[fold] = test_label_results
-                logger.info('find the new best model with f1 in fold %5d: %.3f' % (fold+1, best_f1))
+                oof[valid_idx] = [[i] for i in val_label_results]
+                logger.info('find the new best model with f1 in fold %.5d: %.3f' % (fold + 1, best_f1))
             else:
                 patience_counter += 1
             if patience_counter >= patience:
                 logger('Early stopping: patience limit reached, stopping...')
                 break
 
-    sub = np.average(test_predicts_folds, axis=0)
+    outputs = compute_output_arrays(train_data, 'label')
+    best_f1, best_threshold = search_f1(outputs, oof)
+    sub_predicts = np.average(test_predicts_folds, axis=0)
+    sub_predicts = sub_predicts > best_threshold
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    test_data['label'] = sub_predicts.astype(int)
+    test_data[['id', 'id_sub', 'label']].to_csv('./submission_file/submission_bertwwm_esim_fgm.csv', index=False,
+                                                header=None, sep='\t')
