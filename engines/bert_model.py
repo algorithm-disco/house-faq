@@ -33,10 +33,10 @@ class BertwwmModel(nn.Module, ABC):
 
     def forward(self, ids, masks, segments):
         with torch.no_grad():
-            bertwwm_hidden = self.bertwwm_model(ids, attention_mask=masks, token_type_ids=segments)[0].to(self.device)
-        rep = self.apply_multiple(bertwwm_hidden)
-        t = bertwwm_hidden[:, -1]
-        e = bertwwm_hidden[:, 0]
+            bert_hidden = self.bertwwm_model(ids, attention_mask=masks, token_type_ids=segments)[0].to(self.device)
+        rep = self.apply_multiple(bert_hidden)
+        t = bert_hidden[:, -1]
+        e = bert_hidden[:, 0]
         combined = torch.cat([rep, t, e], -1)
         dropout_results = self.dropout(combined)
         logits = self.linear(dropout_results)
