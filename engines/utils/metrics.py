@@ -25,7 +25,7 @@ def correct_predictions(output_probabilities, targets):
     return correct_nums.item()
 
 
-def search_f1(logger, y_true, y_pred):
+def search_f1(y_true, y_pred):
     best_f1 = 0
     best_threshold = 0
     for i in range(30, 60):
@@ -35,6 +35,4 @@ def search_f1(logger, y_true, y_pred):
         if score > best_f1:
             best_f1 = score
             best_threshold = threshold
-    logger.info('best_f1:', best_f1)
-    logger.info('best_threshold:', best_threshold)
     return best_f1, best_threshold

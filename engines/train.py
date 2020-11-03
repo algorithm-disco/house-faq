@@ -165,7 +165,8 @@ def train(device, logger):
                 break
 
     outputs = compute_output_arrays(train_data, 'label')
-    best_f1, best_threshold = search_f1(logger, outputs, oof)
+    best_f1, best_threshold = search_f1(outputs, oof)
+    logger.info('best_f1 is %.3f, best_threshold is %.3f' % (best_f1, best_threshold))
     sub_predicts = np.average(test_predicts_folds, axis=0)
     sub_predicts = sub_predicts > best_threshold
 

@@ -42,12 +42,3 @@ class BertwwmModel(nn.Module, ABC):
         logits = self.linear(dropout_results)
         probabilities = F.softmax(logits, dim=-1)
         return logits, probabilities
-
-
-
-
-
-
-
-
-
